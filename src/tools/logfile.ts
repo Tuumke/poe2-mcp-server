@@ -102,10 +102,10 @@ function formatLogSummary(data: ParsedLogData, tailLines: number, logFilePath: s
 
   if (firstTimestamp && lastTimestamp) {
     lines.push(
-      `**Log scope:** Last ${tailLines.toLocaleString()} lines (${formatFullTimestamp(firstTimestamp)} - ${formatTime(lastTimestamp)})`,
+      `**Log scope:** Last ${tailLines.toLocaleString('en-US')} lines (${formatFullTimestamp(firstTimestamp)} - ${formatTime(lastTimestamp)})`,
     );
   } else {
-    lines.push(`**Log scope:** Last ${tailLines.toLocaleString()} lines`);
+    lines.push(`**Log scope:** Last ${tailLines.toLocaleString('en-US')} lines`);
   }
 
   lines.push(

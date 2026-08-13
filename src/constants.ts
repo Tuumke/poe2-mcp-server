@@ -9,7 +9,7 @@
 import { z } from 'zod';
 
 /** Hardcoded fallback league. Update each league rotation. */
-const FALLBACK_LEAGUE = 'Dawn of the Hunt';
+const FALLBACK_LEAGUE = 'Runes of Aldur';
 
 /**
  * Read a named CLI argument value from process.argv.
@@ -31,7 +31,7 @@ export const LeagueSchema = z
   .default(DEFAULT_LEAGUE)
   .describe(
     `PoE2 league name. Current default: "${DEFAULT_LEAGUE}". ` +
-      `Challenge leagues: "Dawn of the Hunt", "Fate of the Vaal", "Rise of the Abyssal". ` +
+      `Challenge leagues: "Runes of Aldur", "Fate of the Vaal", "Rise of the Abyssal", "Dawn of the Hunt". ` +
       `Permanent leagues: "Standard", "Hardcore". ` +
-      `Hardcore variants: "HC Dawn of the Hunt".`,
+      `Hardcore variants: "HC Runes of Aldur".`,
   );

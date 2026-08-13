@@ -34,22 +34,21 @@ function mockScoutResponse(
   }>,
 ) {
   vi.mocked(fetchJson).mockResolvedValue({
-    currentPage: 1,
-    pages: 1,
-    total: items.length,
-    items: items.map((item, idx) => ({
-      id: idx,
-      itemId: idx,
-      iconUrl: null,
-      text: item.text ?? item.name,
-      name: item.name,
-      categoryApiId: item.categoryApiId ?? 'armour',
-      type: item.type ?? 'Base',
-      isChanceable: false,
-      priceLogs: item.quantity
-        ? [{ price: item.currentPrice, time: '2026-01-01', quantity: item.quantity }]
-        : [null],
-      currentPrice: item.currentPrice,
+    CurrentPage: 1,
+    Pages: 1,
+    Total: items.length,
+    Items: items.map((item, idx) => ({
+      UniqueItemId: idx,
+      ItemId: idx,
+      IconUrl: null,
+      Text: item.text ?? item.name,
+      Name: item.name,
+      CategoryApiId: item.categoryApiId ?? 'armour',
+      Type: item.type ?? 'Base',
+      IsChanceable: false,
+      PriceLogs: [null],
+      CurrentPrice: item.currentPrice,
+      CurrentQuantity: item.quantity ?? null,
     })),
   });
 }
@@ -93,10 +92,10 @@ describe('getPoe2scoutUniques', () => {
     await getPoe2scoutUniques('armour', 'Dawn of the Hunt', 'kaom');
 
     const url = vi.mocked(fetchJson).mock.calls[0]![0] as string;
-    expect(url).toContain('/items/unique/armour');
-    expect(url).toContain('league=Dawn+of+the+Hunt');
+    expect(url).toContain('/poe2/Leagues/Dawn%20of%20the%20Hunt/Uniques/ByCategory');
+    expect(url).toContain('category=armour');
     expect(url).toContain('referenceCurrency=chaos');
-    expect(url).toContain('search=kaom');
+    expect(url).not.toContain('search=');
     expect(url).toContain('perPage=250');
   });
 
@@ -105,9 +104,9 @@ describe('getPoe2scoutUniques', () => {
 
     const result = await getPoe2scoutUniques('armour', 'Dawn of the Hunt');
 
-    expect(result.total).toBe(1);
-    expect(result.items[0]!.name).toBe("Kaom's Heart");
-    expect(result.items[0]!.currentPrice).toBe(500);
+    expect(result.Total).toBe(1);
+    expect(result.Items[0]!.Name).toBe("Kaom's Heart");
+    expect(result.Items[0]!.CurrentPrice).toBe(500);
   });
 
   it('throws on fetchJson error', async () => {
@@ -159,23 +158,32 @@ describe('searchPoe2scoutUniques', () => {
     expect(results).toHaveLength(0);
   });
 
-  it('extracts volume from latest non-null price log', async () => {
+  it('prefers CurrentQuantity for volume', async () => {
+    mockScoutResponse([{ name: 'Test Item', currentPrice: 100, quantity: 42 }]);
+
+    const results = await searchPoe2scoutUniques('armour', 'test', 'Standard');
+
+    expect(results[0]!.volume).toBe(42);
+  });
+
+  it('falls back to latest non-null price log when CurrentQuantity is absent', async () => {
     vi.mocked(fetchJson).mockResolvedValue({
-      currentPage: 1,
-      pages: 1,
-      total: 1,
-      items: [
+      CurrentPage: 1,
+      Pages: 1,
+      Total: 1,
+      Items: [
         {
-          id: 1,
-          itemId: 1,
-          iconUrl: null,
-          text: 'Test Item',
-          name: 'Test Item',
-          categoryApiId: 'armour',
-          type: 'Base',
-          isChanceable: false,
-          priceLogs: [null, null, { price: 100, time: '2026-01-01', quantity: 42 }, null],
-          currentPrice: 100,
+          UniqueItemId: 1,
+          ItemId: 1,
+          IconUrl: null,
+          Text: 'Test Item',
+          Name: 'Test Item',
+          CategoryApiId: 'armour',
+          Type: 'Base',
+          IsChanceable: false,
+          PriceLogs: [null, null, { price: 100, time: '2026-01-01', quantity: 42 }, null],
+          CurrentPrice: 100,
+          CurrentQuantity: null,
         },
       ],
     });

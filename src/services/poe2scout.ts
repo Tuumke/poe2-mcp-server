@@ -10,7 +10,10 @@ import { RateLimiter, fetchJson } from './http.js';
 // poe2scout.com: conservative limit (no documented rate limit)
 const poe2scoutLimiter = new RateLimiter(10, 60 * 1000);
 
-const POE2SCOUT_BASE = 'https://poe2scout.com/api';
+// API moved to a dedicated host + versioned, realm-aware routes (2026 .NET rewrite).
+// Realm is a path segment, not a query param. See https://api.poe2scout.com/swagger
+const POE2SCOUT_BASE = 'https://api.poe2scout.com';
+const POE2SCOUT_REALM = 'poe2';
 
 /** Price log entry from poe2scout. */
 interface Poe2scoutPriceLog {
@@ -19,26 +22,27 @@ interface Poe2scoutPriceLog {
   quantity: number;
 }
 
-/** Unique item returned by poe2scout. */
+/** Unique item returned by poe2scout (PascalCase since the .NET rewrite). */
 interface Poe2scoutUniqueItem {
-  id: number;
-  itemId: number;
-  iconUrl: string | null;
-  text: string;
-  name: string;
-  categoryApiId: string;
-  type: string;
-  isChanceable: boolean;
-  priceLogs: Array<Poe2scoutPriceLog | null>;
-  currentPrice: number | null;
+  UniqueItemId: number;
+  ItemId: number;
+  IconUrl: string | null;
+  Text: string;
+  Name: string;
+  CategoryApiId: string;
+  Type: string;
+  IsChanceable: boolean;
+  PriceLogs: Array<Poe2scoutPriceLog | null>;
+  CurrentPrice: number | null;
+  CurrentQuantity: number | null;
 }
 
 /** Paginated response for unique items. */
 interface Poe2scoutUniqueResponse {
-  currentPage: number;
-  pages: number;
-  total: number;
-  items: Poe2scoutUniqueItem[];
+  CurrentPage: number;
+  Pages: number;
+  Total: number;
+  Items: Poe2scoutUniqueItem[];
 }
 
 /** Normalized unique item price result. */
@@ -84,14 +88,19 @@ export async function getPoe2scoutUniques(
   search: string = '',
   perPage: number = 250,
 ): Promise<Poe2scoutUniqueResponse> {
+  // NOTE: the rewritten API has no working server-side text filter (the old
+  // `search` param now returns zero rows). We fetch the whole category — a
+  // single page of <=250 covers every category — and callers filter locally.
+  void search;
   const params = new URLSearchParams({
-    league,
+    category,
     referenceCurrency: 'chaos',
-    search,
     page: '1',
     perPage: String(perPage),
   });
-  const url = `${POE2SCOUT_BASE}/items/unique/${encodeURIComponent(category)}?${params}`;
+  const url =
+    `${POE2SCOUT_BASE}/${POE2SCOUT_REALM}/Leagues/` +
+    `${encodeURIComponent(league)}/Uniques/ByCategory?${params}`;
   return fetchJson<Poe2scoutUniqueResponse>(url, poe2scoutLimiter);
 }
 
@@ -111,21 +120,19 @@ export async function searchPoe2scoutUniques(
   const response = await getPoe2scoutUniques(category, league, query);
   const lowerQuery = query.toLowerCase();
 
-  return response.items
-    .filter((item) => {
-      if (!item.currentPrice) return false;
-      return (
-        item.name.toLowerCase().includes(lowerQuery) || item.text.toLowerCase().includes(lowerQuery)
-      );
-    })
-    .map((item) => ({
-      name: item.name,
-      baseType: item.type,
-      chaos: item.currentPrice!,
-      volume: extractLatestVolume(item.priceLogs),
-      iconUrl: item.iconUrl,
-      category: item.categoryApiId,
-    }));
+  return response.Items.filter((item) => {
+    if (!item.CurrentPrice) return false;
+    return (
+      item.Name.toLowerCase().includes(lowerQuery) || item.Text.toLowerCase().includes(lowerQuery)
+    );
+  }).map((item) => ({
+    name: item.Name,
+    baseType: item.Type,
+    chaos: item.CurrentPrice!,
+    volume: extractVolume(item),
+    iconUrl: item.IconUrl,
+    category: item.CategoryApiId,
+  }));
 }
 
 /**
@@ -148,15 +155,15 @@ export async function lookupUniquePriceFromScout(
     const response = await getPoe2scoutUniques(category, league, name);
     const lowerName = name.toLowerCase();
 
-    const match = response.items.find(
-      (item) => item.name.toLowerCase() === lowerName && item.currentPrice !== null,
+    const match = response.Items.find(
+      (item) => item.Name.toLowerCase() === lowerName && item.CurrentPrice !== null,
     );
 
-    if (!match?.currentPrice) return null;
+    if (!match?.CurrentPrice) return null;
 
     return {
-      chaos: match.currentPrice,
-      volume: extractLatestVolume(match.priceLogs),
+      chaos: match.CurrentPrice,
+      volume: extractVolume(match),
     };
   } catch (err) {
     console.error(
@@ -167,10 +174,14 @@ export async function lookupUniquePriceFromScout(
   }
 }
 
-/** Extract volume from the most recent non-null price log entry. */
-function extractLatestVolume(priceLogs: Array<Poe2scoutPriceLog | null>): number {
-  for (let i = priceLogs.length - 1; i >= 0; i--) {
-    const log = priceLogs[i];
+/**
+ * Extract trade volume for a unique. The rewritten API exposes CurrentQuantity
+ * directly; fall back to the most recent non-null price log entry.
+ */
+function extractVolume(item: Poe2scoutUniqueItem): number {
+  if (item.CurrentQuantity) return item.CurrentQuantity;
+  for (let i = item.PriceLogs.length - 1; i >= 0; i--) {
+    const log = item.PriceLogs[i];
     if (log?.quantity) return log.quantity;
   }
   return 0;

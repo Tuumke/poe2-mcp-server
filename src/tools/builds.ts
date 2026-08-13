@@ -83,7 +83,7 @@ Examples:
         const lines: string[] = [
           `## Meta Builds Overview — ${entry.leagueName}`,
           '',
-          `Total indexed characters: ${total.toLocaleString()}`,
+          `Total indexed characters: ${total.toLocaleString('en-US')}`,
           '',
           '### Class Distribution',
         ];
