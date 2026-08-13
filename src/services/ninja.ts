@@ -7,8 +7,10 @@ export function displayNinjaName(id: string, coreNames: Map<string, string>): st
 
 // ─── poe.ninja PoE2 Exchange API ──────────────────────────────────────
 
-// poe.ninja: 12 req / 5 min
-const ninjaLimiter = new RateLimiter(10, 5 * 60 * 1000);
+// poe.ninja tolerates a steady ~1 req/sec; 20/min lets a full item_price
+// "search all categories" sweep (13 exchange types) finish in one window
+// instead of stalling minutes on the old 10-per-5-min hard cap.
+const ninjaLimiter = new RateLimiter(20, 60 * 1000);
 
 interface NinjaExchangeCoreItem {
   id: string;
