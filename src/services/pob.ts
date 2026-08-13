@@ -821,20 +821,50 @@ export function resolvePob2BuildsPath(overridePath?: string): string | null {
  * @param buildsPath - Path to PoB2 Builds directory
  * @returns Array of build entries sorted by lastModified descending
  */
-export function listPob2Builds(buildsPath: string): PobLocalBuildEntry[] {
-  const entries: PobLocalBuildEntry[] = [];
-
-  let files: string[];
+/**
+ * Recursively collect all .xml build files under a directory. PoB2 organizes
+ * saved builds in nested folders (e.g. `Builds/0.5/My Build/build.xml`), so a
+ * flat scan misses everything — we walk subdirectories (depth-limited).
+ */
+function collectBuildFiles(root: string, dir: string = root, depth: number = 0): string[] {
+  if (depth > 6) return [];
+  let names: string[];
   try {
-    files = readdirSync(buildsPath);
+    names = readdirSync(dir);
   } catch {
     return [];
   }
 
-  for (const file of files) {
-    if (!file.endsWith('.xml')) continue;
+  const found: string[] = [];
+  for (const name of names) {
+    const full = path.join(dir, name);
+    let stat;
+    try {
+      stat = statSync(full);
+    } catch {
+      continue;
+    }
+    if (stat.isDirectory()) {
+      found.push(...collectBuildFiles(root, full, depth + 1));
+    } else if (stat.isFile() && name.toLowerCase().endsWith('.xml')) {
+      found.push(full);
+    }
+  }
+  return found;
+}
 
-    const filePath = path.join(buildsPath, file);
+/** Build's identifying name relative to the Builds root, with forward slashes. */
+function buildRelName(root: string, filePath: string): string {
+  return path
+    .relative(root, filePath)
+    .replace(/\.xml$/i, '')
+    .replace(/\\/g, '/');
+}
+
+export function listPob2Builds(buildsPath: string): PobLocalBuildEntry[] {
+  const entries: PobLocalBuildEntry[] = [];
+
+  for (const filePath of collectBuildFiles(buildsPath)) {
     try {
       const stat = statSync(filePath);
       if (!stat.isFile()) continue;
@@ -856,7 +886,7 @@ export function listPob2Builds(buildsPath: string): PobLocalBuildEntry[] {
       if (levelMatch) level = parseInt(levelMatch[1]!, 10);
 
       entries.push({
-        filename: file.replace(/\.xml$/i, ''),
+        filename: buildRelName(buildsPath, filePath),
         className,
         ascendancy,
         level,
@@ -877,33 +907,30 @@ export function listPob2Builds(buildsPath: string): PobLocalBuildEntry[] {
  * @returns Parsed PobBuild or null if not found
  */
 export function readPob2Build(buildsPath: string, buildName: string): PobBuild | null {
-  let files: string[];
-  try {
-    files = readdirSync(buildsPath);
-  } catch {
-    return null;
-  }
+  const files = collectBuildFiles(buildsPath);
+  if (files.length === 0) return null;
 
-  const lowerName = buildName.toLowerCase();
+  const lowerName = buildName.toLowerCase().replace(/\.xml$/i, '').replace(/\\/g, '/');
+  const rel = (f: string) => buildRelName(buildsPath, f).toLowerCase();
+  const base = (f: string) => path.basename(f, '.xml').toLowerCase();
 
-  // Exact match first
-  let matchedFile = files.find(
-    (f) => f.toLowerCase() === `${lowerName}.xml` || f.toLowerCase() === lowerName,
-  );
+  // Exact match on relative name or bare filename first
+  let matchedFile = files.find((f) => rel(f) === lowerName || base(f) === lowerName);
 
-  // Substring match
+  // Substring match (relative path, so "amazon" or "0.5/amazon" both work)
   if (!matchedFile) {
-    matchedFile = files.find((f) => f.endsWith('.xml') && f.toLowerCase().includes(lowerName));
+    matchedFile = files.find((f) => rel(f).includes(lowerName));
   }
 
   if (!matchedFile) return null;
 
-  const filePath = path.join(buildsPath, matchedFile);
   try {
-    const content = readFileSync(filePath, 'utf-8');
+    const content = readFileSync(matchedFile, 'utf-8');
     return parsePobXml(content, 'file');
   } catch {
-    throw new Error(`Failed to parse build file "${matchedFile}": file may be corrupted`);
+    throw new Error(
+      `Failed to parse build file "${buildRelName(buildsPath, matchedFile)}": file may be corrupted`,
+    );
   }
 }
 
