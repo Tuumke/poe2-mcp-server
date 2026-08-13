@@ -40,16 +40,19 @@ function createMockServer() {
   return { mockServer, handlers };
 }
 
-function createMinimalPobCode(format: 'raw' | 'zlib' = 'raw'): string {
+function createMinimalPobCode(
+  format: 'raw' | 'zlib' = 'raw',
+  root: string = 'PathOfBuilding2',
+): string {
   const xml = `
-<PathOfBuilding>
+<${root}>
   <Build className="Witch" ascendClassName="Necromancer" level="90"></Build>
   <Items></Items>
   <Skills></Skills>
   <Tree activeSpec="1"><Spec treeVersion="0.4"><URL></URL></Spec></Tree>
   <Config></Config>
   <Notes></Notes>
-</PathOfBuilding>`;
+</${root}>`;
   const compressed =
     format === 'raw'
       ? deflateRawSync(Buffer.from(xml, 'utf-8'))
@@ -75,6 +78,7 @@ function createMockBuild(overrides: Partial<PobBuild> = {}): PobBuild {
     config: {},
     notes: '',
     xmlSource: 'code',
+    warnings: [],
     ...overrides,
   };
 }
@@ -100,6 +104,22 @@ describe('poe2_pob_decode', () => {
     expect(result.content[0]?.text).toContain('pobb.in/test123');
     expect(result.content[0]?.text).toContain('Necromancer');
     expect(result.content[0]?.text).toContain('Level 90');
+  });
+
+  it('surfaces a warning when the decoded build uses the PoB1 root element', async () => {
+    vi.mocked(resolvePob2BuildsPath).mockReturnValue(null);
+    const pobCode = createMinimalPobCode('raw', 'PathOfBuilding');
+    vi.mocked(fetchPobbinCode).mockResolvedValue(pobCode);
+
+    const { mockServer, handlers } = createMockServer();
+    registerPobTools(mockServer);
+    const handler = handlers.get('poe2_pob_decode')!;
+
+    const result = await handler({ code: 'https://pobb.in/test123' });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]?.text).toContain('⚠️');
+    expect(result.content[0]?.text).toContain("'PathOfBuilding2' root element missing");
   });
 
   it('fetches and decodes poe.ninja PoB URL', async () => {

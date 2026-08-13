@@ -8,6 +8,7 @@ import {
   fetchPoeNinjaCode,
   parseItemText,
   parsePobXml,
+  detectPobRootElement,
   comparePobBuilds,
   type PobBuild,
   type PobItem,
@@ -339,7 +340,7 @@ Base Item Only`;
 
 describe('parsePobXml', () => {
   const minimalXml = `
-<PathOfBuilding>
+<PathOfBuilding2>
   <Build className="Witch" ascendClassName="Necromancer" level="95" bandit="None">
   </Build>
   <Items></Items>
@@ -351,7 +352,7 @@ describe('parsePobXml', () => {
   </Tree>
   <Config></Config>
   <Notes>Test notes</Notes>
-</PathOfBuilding>`;
+</PathOfBuilding2>`;
 
   it('extracts build metadata', () => {
     const result = parsePobXml(minimalXml, 'code');
@@ -363,6 +364,7 @@ describe('parsePobXml', () => {
       bandit: 'None',
     });
     expect(result.xmlSource).toBe('code');
+    expect(result.warnings).toEqual([]);
   });
 
   it('extracts notes', () => {
@@ -374,7 +376,7 @@ describe('parsePobXml', () => {
 
   it('parses items from Items block', () => {
     const xml = `
-<PathOfBuilding>
+<PathOfBuilding2>
   <Build className="Witch" level="1"></Build>
   <Items>
     <Slot name="Helmet" itemId="1"/>
@@ -392,7 +394,7 @@ Implicits: 0
   <Tree activeSpec="1"><Spec treeVersion="0.4"><URL></URL></Spec></Tree>
   <Config></Config>
   <Notes></Notes>
-</PathOfBuilding>`;
+</PathOfBuilding2>`;
 
     const result = parsePobXml(xml, 'code');
 
@@ -408,7 +410,7 @@ Implicits: 0
 
   it('parses skills and gems', () => {
     const xml = `
-<PathOfBuilding>
+<PathOfBuilding2>
   <Build className="Witch" level="1"></Build>
   <Items></Items>
   <Skills>
@@ -420,7 +422,7 @@ Implicits: 0
   <Tree activeSpec="1"><Spec treeVersion="0.4"><URL></URL></Spec></Tree>
   <Config></Config>
   <Notes></Notes>
-</PathOfBuilding>`;
+</PathOfBuilding2>`;
 
     const result = parsePobXml(xml, 'code');
 
@@ -434,7 +436,7 @@ Implicits: 0
 
   it('parses config values', () => {
     const xml = `
-<PathOfBuilding>
+<PathOfBuilding2>
   <Build className="Witch" level="1"></Build>
   <Items></Items>
   <Skills></Skills>
@@ -445,7 +447,7 @@ Implicits: 0
     <Input name="customMod" string="test value"/>
   </Config>
   <Notes></Notes>
-</PathOfBuilding>`;
+</PathOfBuilding2>`;
 
     const result = parsePobXml(xml, 'code');
 
@@ -457,7 +459,7 @@ Implicits: 0
   });
 
   it('handles missing optional sections gracefully', () => {
-    const xml = '<PathOfBuilding><Build className="Ranger" level="1"></Build></PathOfBuilding>';
+    const xml = '<PathOfBuilding2><Build className="Ranger" level="1"></Build></PathOfBuilding2>';
 
     const result = parsePobXml(xml, 'code');
 
@@ -465,6 +467,57 @@ Implicits: 0
     expect(result.items).toEqual([]);
     expect(result.skills).toEqual([]);
     expect(result.notes).toBe('');
+  });
+
+  it('warns when root element is PoB1 <PathOfBuilding> instead of <PathOfBuilding2>', () => {
+    const xml = '<PathOfBuilding><Build className="Ranger" level="1"></Build></PathOfBuilding>';
+
+    const result = parsePobXml(xml, 'code');
+
+    // Still parses (lenient), but flags the mismatch PoB2 would reject on import.
+    expect(result.metadata.className).toBe('Ranger');
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('<PathOfBuilding>');
+    expect(result.warnings[0]).toContain("'PathOfBuilding2' root element missing");
+  });
+
+  it('warns when root element is missing entirely', () => {
+    const xml = '<Build className="Ranger" level="1"></Build>';
+
+    const result = parsePobXml(xml, 'code');
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('PathOfBuilding2');
+  });
+
+  it('handles an XML declaration before the root element', () => {
+    const xml =
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<PathOfBuilding2><Build className="Ranger" level="1"></Build></PathOfBuilding2>';
+
+    const result = parsePobXml(xml, 'code');
+
+    expect(result.warnings).toEqual([]);
+  });
+});
+
+describe('detectPobRootElement', () => {
+  it('detects PathOfBuilding2 root', () => {
+    expect(detectPobRootElement('<PathOfBuilding2><Build/></PathOfBuilding2>')).toBe(
+      'PathOfBuilding2',
+    );
+  });
+
+  it('detects root with attributes', () => {
+    expect(detectPobRootElement('<PathOfBuilding2 version="2">')).toBe('PathOfBuilding2');
+  });
+
+  it('skips XML declaration', () => {
+    expect(detectPobRootElement('<?xml version="1.0"?><PathOfBuilding2>')).toBe('PathOfBuilding2');
+  });
+
+  it('returns null when no tag present', () => {
+    expect(detectPobRootElement('not xml at all')).toBeNull();
   });
 });
 
@@ -486,6 +539,7 @@ describe('comparePobBuilds', () => {
     config: {},
     notes: '',
     xmlSource: 'code',
+    warnings: [],
     ...overrides,
   });
 

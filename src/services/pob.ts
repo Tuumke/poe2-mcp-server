@@ -113,6 +113,8 @@ export interface PobBuild {
   config: PobConfig;
   notes: string;
   xmlSource: 'code' | 'file';
+  /** Non-fatal validation warnings (e.g. wrong root element for PoB2). */
+  warnings: string[];
 }
 
 /** Item comparison diff entry. */
@@ -559,12 +561,46 @@ function parseTreeSpec(specUrl: string): number[] {
 }
 
 /**
+ * The root element PoB2 (v0.23.1+) requires. PoB1 used `<PathOfBuilding>`;
+ * PoB2 renamed it and hard-rejects anything else with
+ * "'PathOfBuilding2' root element missing".
+ */
+export const POB2_ROOT_ELEMENT = 'PathOfBuilding2';
+
+/**
+ * Detect the root element name of a PoB XML document.
+ * Skips any XML declaration / leading comments.
+ * @param xml - Decoded PoB XML string
+ * @returns Root tag name (e.g. "PathOfBuilding2") or null if none found
+ */
+export function detectPobRootElement(xml: string): string | null {
+  // Strip XML declaration and comments before locating the first real tag.
+  const stripped = xml.replace(/<\?[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, '');
+  const match = /<([A-Za-z_][\w.-]*)[\s>/]/.exec(stripped);
+  return match?.[1] ?? null;
+}
+
+/**
  * Parse PoB XML into structured PobBuild object.
  * @param xml - Decoded PoB XML string
  * @param source - Source type ('code' or 'file')
  * @returns Parsed build data
  */
 export function parsePobXml(xml: string, source: 'code' | 'file'): PobBuild {
+  const warnings: string[] = [];
+
+  // Validate root element: PoB2 requires <PathOfBuilding2>. Accepting anything
+  // else (e.g. PoB1's <PathOfBuilding>) lets a build decode here that PoB2 will
+  // reject on import with "'PathOfBuilding2' root element missing".
+  const rootElement = detectPobRootElement(xml);
+  if (rootElement !== POB2_ROOT_ELEMENT) {
+    warnings.push(
+      `Root element is ${rootElement ? `<${rootElement}>` : 'missing'}, but PoB2 requires ` +
+        `<${POB2_ROOT_ELEMENT}>. PoB2 will reject this build on import with ` +
+        `"'${POB2_ROOT_ELEMENT}' root element missing".`,
+    );
+  }
+
   // Extract <Build> attributes
   const buildMatch = /<Build\s([^>]+)>/i.exec(xml);
   const buildAttrs = buildMatch?.[1] ?? '';
@@ -783,6 +819,7 @@ export function parsePobXml(xml: string, source: 'code' | 'file'): PobBuild {
     config,
     notes,
     xmlSource: source,
+    warnings,
   };
 }
 

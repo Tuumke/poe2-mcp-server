@@ -31,6 +31,14 @@ function formatBuildMarkdown(build: PobBuild, source: string): string {
   lines.push(`*Source: ${source}*`);
   lines.push('');
 
+  // Surface validation warnings (e.g. wrong root element for PoB2)
+  if (build.warnings.length > 0) {
+    for (const warning of build.warnings) {
+      lines.push(`> ⚠️ ${warning}`);
+    }
+    lines.push('');
+  }
+
   // Metadata
   if (metadata.bandit) lines.push(`**Bandit:** ${metadata.bandit}`);
   if (metadata.pantheonMajor || metadata.pantheonMinor) {
