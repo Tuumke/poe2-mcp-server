@@ -44,7 +44,9 @@ export function loadGGGSession(): GGGSession | null {
 
   if (existsSync(SESSION_FILE)) {
     try {
-      const raw = JSON.parse(readFileSync(SESSION_FILE, 'utf-8')) as Record<string, unknown>;
+      // Strip a UTF-8 BOM — PowerShell's Set-Content can add one, which breaks JSON.parse.
+      const text = readFileSync(SESSION_FILE, 'utf-8').replace(/^﻿/, '');
+      const raw = JSON.parse(text) as Record<string, unknown>;
       const poesessid = typeof raw.poesessid === 'string' ? raw.poesessid.trim() : '';
       const accountName = typeof raw.accountName === 'string' ? raw.accountName.trim() : '';
       if (poesessid && accountName) {
