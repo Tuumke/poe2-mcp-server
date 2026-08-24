@@ -10,22 +10,21 @@ All data is sourced from **public APIs only**. No API keys, no GGG OAuth registr
 
 ## Tools
 
-| Tool                    | Description                                                                                    | Source                                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `poe2_currency_prices`  | Current exchange rates for all currencies                                                      | [poe.ninja](https://poe.ninja/poe2)                                                                 |
-| `poe2_currency_check`   | Look up a specific currency by name                                                            | [poe.ninja](https://poe.ninja/poe2)                                                                 |
-| `poe2_item_price`       | Price check items across exchange and unique categories                                        | [poe.ninja](https://poe.ninja/poe2) / [poe2scout](https://poe2scout.com/)                           |
-| `poe2_exchange_top`     | Most valuable items by exchange category                                                       | [poe.ninja](https://poe.ninja/poe2)                                                                 |
-| `poe2_wiki_search`      | Search the PoE 2 community wiki                                                                | [poe2wiki.net](https://www.poe2wiki.net/)                                                           |
-| `poe2_wiki_page`        | Retrieve full wiki article content                                                             | [poe2wiki.net](https://www.poe2wiki.net/)                                                           |
-| `poe2_db_lookup`        | Datamined game data: gems, mods, items, translations                                           | [poe2db.tw](https://poe2db.tw/)                                                                     |
-| `poe2_meta_builds`      | Ladder class distribution with percentages and trends                                          | [poe.ninja](https://poe.ninja/poe2)                                                                 |
-| `poe2_log_summary`      | Parse local game logs: zones, sessions, player events                                          | Local logs                                                                                          |
-| `poe2_pob_decode`       | Decode builds from pobb.in, poe.ninja, or local files                                          | [pobb.in](https://pobb.in/) / [poe.ninja](https://poe.ninja/poe2/pob) / local                       |
-| `poe2_pob_local_builds` | List saved PoB2 builds from local filesystem                                                   | Local PoB2                                                                                          |
-| `poe2_pob_compare`      | Compare two builds to identify gear/skill differences                                          | [pobb.in](https://pobb.in/) / [poe.ninja](https://poe.ninja/poe2/pob) / local                       |
-| `poe2_parse_item`       | Parse item clipboard text with enrichment (mod tiers, base stats, unique prices)               | Client-side + [RePoE](https://repoe-fork.github.io/poe2/) + [poe2scout](https://api.poe2scout.com/) |
-| `poe2_stash`            | Read your own stash tabs (⚠️ **currently non-functional** — see [Fork changes](#fork-changes)) | pathofexile.com (POESESSID)                                                                         |
+| Tool                    | Description                                                                      | Source                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `poe2_currency_prices`  | Current exchange rates for all currencies                                        | [poe.ninja](https://poe.ninja/poe2)                                                                 |
+| `poe2_currency_check`   | Look up a specific currency by name                                              | [poe.ninja](https://poe.ninja/poe2)                                                                 |
+| `poe2_item_price`       | Price check items across exchange and unique categories                          | [poe.ninja](https://poe.ninja/poe2) / [poe2scout](https://poe2scout.com/)                           |
+| `poe2_exchange_top`     | Most valuable items by exchange category                                         | [poe.ninja](https://poe.ninja/poe2)                                                                 |
+| `poe2_wiki_search`      | Search the PoE 2 community wiki                                                  | [poe2wiki.net](https://www.poe2wiki.net/)                                                           |
+| `poe2_wiki_page`        | Retrieve full wiki article content                                               | [poe2wiki.net](https://www.poe2wiki.net/)                                                           |
+| `poe2_db_lookup`        | Datamined game data: gems, mods, items, translations                             | [poe2db.tw](https://poe2db.tw/)                                                                     |
+| `poe2_meta_builds`      | Ladder class distribution with percentages and trends                            | [poe.ninja](https://poe.ninja/poe2)                                                                 |
+| `poe2_log_summary`      | Parse local game logs: zones, sessions, player events                            | Local logs                                                                                          |
+| `poe2_pob_decode`       | Decode builds from pobb.in, poe.ninja, or local files                            | [pobb.in](https://pobb.in/) / [poe.ninja](https://poe.ninja/poe2/pob) / local                       |
+| `poe2_pob_local_builds` | List saved PoB2 builds from local filesystem                                     | Local PoB2                                                                                          |
+| `poe2_pob_compare`      | Compare two builds to identify gear/skill differences                            | [pobb.in](https://pobb.in/) / [poe.ninja](https://poe.ninja/poe2/pob) / local                       |
+| `poe2_parse_item`       | Parse item clipboard text with enrichment (mod tiers, base stats, unique prices) | Client-side + [RePoE](https://repoe-fork.github.io/poe2/) + [poe2scout](https://api.poe2scout.com/) |
 
 ## Requirements
 
@@ -417,7 +416,7 @@ poe2-mcp-server/
 │   │   ├── strings.ts              # 11-language keyword mappings for item parsing
 │   │   ├── logfile.ts              # Client.txt log parsing
 │   │   ├── pob.ts                  # Path of Building decode/compare
-│   │   ├── ggg.ts                  # GGG session-cookie client (stash; see Fork changes)
+│   │   ├── ggg.ts                  # GGG session client — dormant, see Fork changes
 │   │   └── repoe.ts                # RePoE datamined JSON — mod tiers, base item stats
 │   └── tools/
 │       ├── currency.ts             # Currency exchange rate tools
@@ -427,7 +426,7 @@ poe2-mcp-server/
 │       ├── builds.ts               # Meta build overview
 │       ├── logfile.ts              # Local logs parser
 │       ├── pob.ts                  # Path of Building integration
-│       └── stash.ts                # Own-account stash reader (POESESSID)
+│       └── stash.ts                # Stash reader — NOT registered, see Fork changes
 ├── dist/                           # Compiled output (npm run build)
 ├── package.json
 ├── tsconfig.json
@@ -436,19 +435,18 @@ poe2-mcp-server/
 
 ### Data Sources
 
-| Source                                                       | Auth      | Rate Limit         | Update Frequency                        |
-| ------------------------------------------------------------ | --------- | ------------------ | --------------------------------------- |
-| [poe.ninja](https://poe.ninja/poe2) PoE2 Exchange API        | None      | 20 req / min       | ~1 hour                                 |
-| [poe.ninja](https://poe.ninja/poe2) PoE2 Build Index API     | None      | 20 req / min       | ~1 hour                                 |
-| [api.poe2scout.com](https://api.poe2scout.com/) Unique Items | None      | ~10 req / min      | ~1 hour                                 |
-| [poe2wiki.net](https://www.poe2wiki.net/) MediaWiki API      | None      | Standard MW limits | Community-driven                        |
-| [RePoE](https://repoe-fork.github.io/poe2/) Datamined JSON   | None      | ~5 req / min       | Each patch                              |
-| [poe2db.tw](https://poe2db.tw/)                              | None      | ~15 req / min      | Each patch                              |
-| [pobb.in](https://pobb.in/) PoB paste service                | None      | 10 req / min       | On-demand                               |
-| [poe.ninja](https://poe.ninja/poe2/pob) PoB paste hosting    | None      | 10 req / 5 min     | On-demand                               |
-| pathofexile.com stash (`poe2_stash`)                         | POESESSID | 5 req / min        | Real-time (**not working — see below**) |
-| Local `Client.txt` / `LatestClient.txt`                      | None      | N/A (local file)   | Real-time                               |
-| Local PoB2 Builds directory                                  | None      | N/A (local file)   | Real-time                               |
+| Source                                                       | Auth | Rate Limit         | Update Frequency |
+| ------------------------------------------------------------ | ---- | ------------------ | ---------------- |
+| [poe.ninja](https://poe.ninja/poe2) PoE2 Exchange API        | None | 20 req / min       | ~1 hour          |
+| [poe.ninja](https://poe.ninja/poe2) PoE2 Build Index API     | None | 20 req / min       | ~1 hour          |
+| [api.poe2scout.com](https://api.poe2scout.com/) Unique Items | None | ~10 req / min      | ~1 hour          |
+| [poe2wiki.net](https://www.poe2wiki.net/) MediaWiki API      | None | Standard MW limits | Community-driven |
+| [RePoE](https://repoe-fork.github.io/poe2/) Datamined JSON   | None | ~5 req / min       | Each patch       |
+| [poe2db.tw](https://poe2db.tw/)                              | None | ~15 req / min      | Each patch       |
+| [pobb.in](https://pobb.in/) PoB paste service                | None | 10 req / min       | On-demand        |
+| [poe.ninja](https://poe.ninja/poe2/pob) PoB paste hosting    | None | 10 req / 5 min     | On-demand        |
+| Local `Client.txt` / `LatestClient.txt`                      | None | N/A (local file)   | Real-time        |
+| Local PoB2 Builds directory                                  | None | N/A (local file)   | Real-time        |
 
 Built-in rate limiters ensure all API limits are respected automatically.
 
@@ -476,7 +474,7 @@ This fork exists because upstream was archived (2026-04-22) and several data sou
 - **`poe2_item_price` hang fixed** — a no-`type` search fans out over 13 exchange categories, which stalled for minutes against the old 10-req-per-5-min poe.ninja limiter. Raised to a steady 20/min (90s → ~1s).
 - **Local PoB builds now found** — `listPob2Builds`/`readPob2Build` only scanned the top-level directory, but PoB2 nests builds as `Builds/<version>/<name>/build.xml`, so a real Builds folder returned nothing. Both now recurse; builds are identified by their path relative to the Builds root.
 - **Locale-independent output** — `toLocaleString()` pinned to `en-US` so number formatting doesn't change with the host locale.
-- **`poe2_stash` added (⚠️ non-functional, parked)** — GGG closed new OAuth app registrations, so this was built against the PoE1 session-cookie endpoint instead. The cookie authenticates and reaches the API, but `character-window/get-stash-items` returns `400 Invalid query` for a PoE2 league and **PoE2 has no web stash page**, so there is no session endpoint to target. The tool, credential loading (`POE2_POESESSID`/`POE2_ACCOUNT_NAME` env or `~/.poe2-mcp/session.json`, never committed), and parsing are all in place — only the endpoint is missing. Revisit if GGG reopens OAuth: swap the cookie header in `src/services/ggg.ts` for a bearer token.
+- **Stash reading attempted, then shelved (not shipped as a tool).** GGG has closed new OAuth app registrations, so this was tried against the PoE1 session-cookie endpoint instead. The cookie authenticates and reaches the API, but `character-window/get-stash-items` returns `400 Invalid query` for a PoE2 league, and **PoE2 has no web stash page** — so no session endpoint exists to target. `src/services/ggg.ts` and `src/tools/stash.ts` are kept (with tests and credential handling: `POE2_POESESSID`/`POE2_ACCOUNT_NAME` env or `~/.poe2-mcp/session.json`, never committed) but are **deliberately not registered in `src/index.ts`** — shipping a tool that always fails would just pollute every client's tool list. If GGG reopens OAuth, swap the cookie header for a bearer token and register it.
 
 ### Maintenance note
 

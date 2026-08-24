@@ -25,7 +25,6 @@ import { registerBuildTools } from './tools/builds.js';
 import { registerLogfileTools } from './tools/logfile.js';
 import { registerPobTools } from './tools/pob.js';
 import { registerItemParserTools } from './tools/item.js';
-import { registerStashTools } from './tools/stash.js';
 
 /** Read a named CLI argument value (e.g., `--poe2-path "/path"`). */
 function readCliArg(flag: string): string | undefined {
@@ -51,7 +50,11 @@ async function main(): Promise<void> {
   registerLogfileTools(server, { poe2InstallPath: poe2Path });
   registerPobTools(server, { pob2BuildsPath: pob2Path });
   registerItemParserTools(server);
-  registerStashTools(server);
+  // NOTE: registerStashTools (src/tools/stash.ts) is intentionally NOT registered.
+  // PoE2 exposes no session-cookie stash endpoint and GGG has closed new OAuth
+  // app registrations, so the tool can never succeed — registering it would only
+  // add a guaranteed-failing tool to every client's tool list. The code and its
+  // credential handling are kept for if/when OAuth reopens. See README > Fork changes.
 
   // Use stdio transport for Claude Desktop integration
   const transport = new StdioServerTransport();
