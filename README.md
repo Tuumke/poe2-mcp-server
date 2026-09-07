@@ -4,7 +4,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that g
 
 All data is sourced from **public APIs only**. No API keys, no GGG OAuth registration, no accounts required.
 
-Two transports ship in one binary: **stdio** for clients that spawn the process locally (Claude Desktop, Claude Code, Cursor, VS Code) and **Streamable HTTP** (`--http`) for clients that only accept a URL (ChatGPT developer mode, hosted agents). See [Remote (HTTP) mode](#remote-http-mode--chatgpt-and-other-remote-clients).
+Two transports ship in one binary: **stdio** for clients that spawn the process locally (Claude Desktop, Claude Code, Codex, Cursor, VS Code) and **Streamable HTTP** (`--http`) for clients that only accept a URL (ChatGPT developer mode, hosted agents). Codex takes either. See [Remote (HTTP) mode](#remote-http-mode--chatgpt-and-other-remote-clients).
 
 > **Fork note:** this is a maintained fork of the archived [sergeyklay/poe2-mcp-server](https://github.com/sergeyklay/poe2-mcp-server), updated for the current league.
 >
@@ -186,6 +186,20 @@ ChatGPT requires an HTTPS URL. Any of these work:
 - **A platform** — Fly.io, Railway, Render — which terminates TLS for you. Set `--host 0.0.0.0` and let `PORT` come from the platform.
 - **A tunnel** — OpenAI's Secure MCP Tunnel, Cloudflare Tunnel, or ngrok — if you want to keep the server on your own machine without opening a port.
 
+#### Keeping it on your own PC
+
+ChatGPT cannot reach `http://localhost` — its connectors are fetched by OpenAI's servers, not by your browser. That is a reachability limit, not a hosting requirement: the process can stay on your machine as long as it has a public HTTPS door. Start the server, then point a tunnel at it:
+
+```bash
+node dist/index.js --http --port 3000
+```
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:3000
+```
+
+`cloudflared` prints a `https://<random>.trycloudflare.com` URL — hand ChatGPT that URL plus your endpoint path (`.../mcp`). `ngrok http 3000` works the same way. The URL dies when you stop the tunnel, which is the point: nothing stays exposed once you are done, and no port is opened on your router.
+
 ### 3. Add it as a ChatGPT connector
 
 1. **Settings → Connectors → Advanced → Developer mode** (needs ChatGPT Pro, Team, Enterprise or Edu).
@@ -200,6 +214,30 @@ ChatGPT requires an HTTPS URL. Any of these work:
 - Leave `--allow-local-tools` off (the default) so nothing on your filesystem is reachable.
 
 For clients that _can_ send headers — Claude custom connectors, the OpenAI Agents SDK, curl — set `POE2_MCP_TOKEN` and send `Authorization: Bearer <token>`.
+
+### OpenAI Codex CLI (local stdio)
+
+Codex — OpenAI's CLI and IDE extension — does launch local MCP servers, so it needs no tunnel and no HTTP mode. Either run:
+
+```bash
+codex mcp add poe2 -- node /absolute/path/to/poe2-mcp-server/dist/index.js
+```
+
+or add it to `~/.codex/config.toml` yourself:
+
+```toml
+[mcp_servers.poe2]
+command = "node"
+args = ["/absolute/path/to/poe2-mcp-server/dist/index.js"]
+```
+
+Codex also takes a remote server, which is where a bearer token is usable:
+
+```toml
+[mcp_servers.poe2]
+url = "https://poe2-mcp.example.com/mcp"
+bearer_token_env_var = "POE2_MCP_TOKEN"
+```
 
 ### Verify it by hand
 
