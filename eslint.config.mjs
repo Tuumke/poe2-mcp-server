@@ -14,6 +14,11 @@ export default defineConfig([
   {
     rules: {
       'no-console': ['error', { allow: ['error'] }],
+      // Leading underscore marks a deliberately unused binding (mock signatures, etc.)
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
     },
   },
 
