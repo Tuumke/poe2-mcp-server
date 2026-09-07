@@ -4,6 +4,8 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that g
 
 All data is sourced from **public APIs only**. No API keys, no GGG OAuth registration, no accounts required.
 
+Two transports ship in one binary: **stdio** for clients that spawn the process locally (Claude Desktop, Claude Code, Cursor, VS Code) and **Streamable HTTP** (`--http`) for clients that only accept a URL (ChatGPT developer mode, hosted agents). See [Remote (HTTP) mode](#remote-http-mode--chatgpt-and-other-remote-clients).
+
 > **Fork note:** this is a maintained fork of the archived [sergeyklay/poe2-mcp-server](https://github.com/sergeyklay/poe2-mcp-server), updated for the current league.
 >
 > **Maintained by [Claude](https://claude.com/claude-code)** (Anthropic's Claude Code) on behalf of the repo owner: the league bump, the poe2scout API rewrite, the bug fixes and this README were researched, written, tested and committed by Claude, working from the live APIs and the local Path of Building data files. A human reviews and directs the work; treat the code as AI-authored and read it before you trust it. See [Fork changes](#fork-changes).
@@ -145,6 +147,67 @@ claude mcp add poe2 node /path/to/poe2-mcp-server/dist/index.js --league "Standa
 ```bash
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
+
+## Remote (HTTP) mode — ChatGPT and other remote clients
+
+ChatGPT never spawns a local process: it only talks to a **remote** MCP server over HTTPS, so the stdio setup above does not apply to it. Run this server with `--http` and put TLS in front.
+
+### 1. Start it in HTTP mode
+
+```bash
+node dist/index.js --http --port 3000 --host 0.0.0.0
+```
+
+| Flag / env                   | Default     | Purpose                                                                                  |
+| ---------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
+| `--http`                     | off         | Serve Streamable HTTP instead of stdio.                                                  |
+| `--port N` / `PORT`          | `3000`      | Listen port.                                                                             |
+| `--host H` / `HOST`          | `127.0.0.1` | Bind address. Loopback by default; use `0.0.0.0` in a container.                         |
+| `--path P` / `POE2_MCP_PATH` | `/mcp`      | Endpoint path. A leading slash is optional and a trailing one is accepted.               |
+| `POE2_MCP_TOKEN`             | unset       | Require `Authorization: Bearer <token>`. Env only, so it stays out of the process list.  |
+| `--allow-local-tools`        | off         | Also serve `poe2_log_summary` / `poe2_pob_local_builds`, which read the **host's** disk. |
+
+Endpoints: `POST <path>` speaks JSON-RPC, `GET /health` is a liveness probe for hosting platforms.
+
+The server is **stateless** — every request gets a fresh server instance, so there are no sessions to pin a client to one process and it scales behind a load balancer. That is also why `GET <path>` returns 405: there is no long-lived SSE stream to attach to.
+
+### 2. Put HTTPS in front
+
+ChatGPT requires an HTTPS URL. Any of these work:
+
+- **A reverse proxy** you already run (Caddy, Traefik, nginx):
+
+  ```caddyfile
+  poe2-mcp.example.com {
+    reverse_proxy 127.0.0.1:3000
+  }
+  ```
+
+- **A platform** — Fly.io, Railway, Render — which terminates TLS for you. Set `--host 0.0.0.0` and let `PORT` come from the platform.
+- **A tunnel** — OpenAI's Secure MCP Tunnel, Cloudflare Tunnel, or ngrok — if you want to keep the server on your own machine without opening a port.
+
+### 3. Add it as a ChatGPT connector
+
+1. **Settings → Connectors → Advanced → Developer mode** (needs ChatGPT Pro, Team, Enterprise or Edu).
+2. **Create** a connector: give it a name and the full URL, e.g. `https://poe2-mcp.example.com/mcp`.
+3. Confirm the trust prompt, then enable the connector per conversation from the **+** menu.
+
+**Authentication caveat.** ChatGPT connectors support OAuth or no authentication — there is no field for a bearer token or a custom header. This server does not implement OAuth, so with ChatGPT you are running an unauthenticated endpoint. Since all upstream rate limits (poe.ninja, poe2scout) are shared per process, anyone who knows the URL can exhaust _your_ budget. Mitigations, roughly in order of effectiveness:
+
+- Keep it behind a tunnel that you start only while you use it.
+- Serve it on an unguessable path: `--path poe2-$(openssl rand -hex 12)`. Obscurity, not security — but it keeps crawlers off.
+- Restrict by source IP at the proxy, if your client's egress addresses are stable.
+- Leave `--allow-local-tools` off (the default) so nothing on your filesystem is reachable.
+
+For clients that _can_ send headers — Claude custom connectors, the OpenAI Agents SDK, curl — set `POE2_MCP_TOKEN` and send `Authorization: Bearer <token>`.
+
+### Verify it by hand
+
+```bash
+curl -s -X POST https://poe2-mcp.example.com/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+A healthy server answers with an SSE `event: message` frame listing the tools.
 
 ## Example Prompts
 
@@ -405,7 +468,9 @@ Default league: **Forbidden Rites** (event league, launched 0.5.5 on 2026-09-04,
 ```plaintext
 poe2-mcp-server/
 ├── src/
-│   ├── index.ts                    # Entry point: server init, stdio transport
+│   ├── index.ts                    # Entry point: CLI flags, transport selection
+│   ├── server.ts                   # Server factory: registers every tool group
+│   ├── http.ts                     # Streamable HTTP transport, bearer auth, /health
 │   ├── constants.ts                # Shared project constants
 │   ├── services/
 │   │   ├── api.ts                  # Barrel re-export for all service modules
@@ -471,6 +536,7 @@ npm start        # Run the server (stdio)
 This fork exists because upstream was archived (2026-04-22) and several data sources drifted afterwards. Changes vs upstream:
 
 - **Current league** — default bumped `Dawn of the Hunt` → `Runes of Aldur` → **`Forbidden Rites`** (0.5.5 event league).
+- **Streamable HTTP transport added** — upstream was stdio-only, which no remote client can use. `--http` serves the same tools over Streamable HTTP (stateless, optional bearer token, configurable path, `/health` probe) so ChatGPT developer mode and hosted agents can reach them; stdio stays the default and is unchanged.
 - **poe2scout coverage gap surfaced** — a brand-new event league is served by poe2scout but stays empty until they ingest its economy, which used to read as "item not found". `poe2_item_price` now checks coverage (`hasScoutUniqueCoverage`) on an empty unique search and says so explicitly; poe.ninja currency/exchange data is unaffected.
 - **poe2scout rewritten** — their API moved to a versioned, realm-aware host. Old `poe2scout.com/api/items/unique/{category}` now 404s; the client uses `https://api.poe2scout.com/{realm}/Leagues/{league}/Uniques/ByCategory?category=…` with `realm` as a **path segment** (`poe2`), PascalCase response fields (`Total`/`Items`/`CurrentPrice`/`CurrentQuantity`), and client-side filtering because the server-side `search` param silently returns zero rows.
 - **`poe2_item_price` hang fixed** — a no-`type` search fans out over 13 exchange categories, which stalled for minutes against the old 10-req-per-5-min poe.ninja limiter. Raised to a steady 20/min (90s → ~1s).
