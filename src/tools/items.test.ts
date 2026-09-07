@@ -8,10 +8,11 @@ vi.mock('../services/api.js', async (importOriginal) => {
 
 vi.mock('../services/poe2scout.js', () => ({
   searchPoe2scoutUniques: vi.fn(),
+  hasScoutUniqueCoverage: vi.fn(),
 }));
 
 import { getNinjaExchangeOverview } from '../services/api.js';
-import { searchPoe2scoutUniques } from '../services/poe2scout.js';
+import { hasScoutUniqueCoverage, searchPoe2scoutUniques } from '../services/poe2scout.js';
 import { registerItemTools } from './items.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<{
@@ -68,7 +69,27 @@ describe('poe2_item_price', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(hasScoutUniqueCoverage).mockResolvedValue(true);
     handler = extractHandlers().get('poe2_item_price')!;
+  });
+
+  it('notes the coverage gap when poe2scout has no uniques for the league', async () => {
+    vi.mocked(getNinjaExchangeOverview).mockResolvedValue(mockExchangeResponse([]));
+    vi.mocked(searchPoe2scoutUniques).mockResolvedValue([]);
+    vi.mocked(hasScoutUniqueCoverage).mockResolvedValue(false);
+
+    const res = await handler({ name: 'kaom', league: 'Forbidden Rites' });
+
+    expect(res.content[0]!.text).toContain('no unique-item listings for "Forbidden Rites"');
+  });
+
+  it('omits the coverage note when poe2scout covers the league', async () => {
+    vi.mocked(getNinjaExchangeOverview).mockResolvedValue(mockExchangeResponse([]));
+    vi.mocked(searchPoe2scoutUniques).mockResolvedValue([]);
+
+    const res = await handler({ name: 'kaom', league: 'Runes of Aldur' });
+
+    expect(res.content[0]!.text).not.toContain('no unique-item listings');
   });
 
   it('finds items by partial id match and formats markdown', async () => {

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getNinjaExchangeOverview, displayNinjaName } from '../services/api.js';
-import { searchPoe2scoutUniques } from '../services/poe2scout.js';
+import { hasScoutUniqueCoverage, searchPoe2scoutUniques } from '../services/poe2scout.js';
 import { DEFAULT_LEAGUE, LeagueSchema } from '../constants.js';
 
 const EXCHANGE_TYPES = [
@@ -170,11 +170,17 @@ Examples:
         }
 
         if (results.length === 0) {
+          const gap =
+            uniqueTypes.length > 0 && !(await hasScoutUniqueCoverage(league))
+              ? `\n\nNote: poe2scout has no unique-item listings for "${league}" yet, ` +
+                `so unique prices are unavailable in this league. Pass another league ` +
+                `to price uniques; currency and exchange categories still work here.`
+              : '';
           return {
             content: [
               {
                 type: 'text',
-                text: `No items found matching "${name}" in ${league}.\n\nTip: Try a shorter name. Available categories: ${ALL_ITEM_TYPES.join(', ')}`,
+                text: `No items found matching "${name}" in ${league}.${gap}\n\nTip: Try a shorter name. Available categories: ${ALL_ITEM_TYPES.join(', ')}`,
               },
             ],
           };

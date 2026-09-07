@@ -120,7 +120,7 @@ Override the default league used by all price/economy tools via `--league`:
 ]
 ```
 
-When not specified, defaults to the current challenge league (`Runes of Aldur`). The AI agent can still pass any league name per-request — this only changes the fallback.
+When not specified, defaults to the current challenge league (`Forbidden Rites`). The AI agent can still pass any league name per-request — this only changes the fallback.
 
 ### Claude Code
 
@@ -387,12 +387,13 @@ If the player uses a non-English game client:
 
 ## Supported Leagues
 
-Default league: **Runes of Aldur** (patch 0.5.x). Configurable via `--league` CLI argument or by editing `FALLBACK_LEAGUE` in `src/constants.ts`. The AI agent can override per-request.
+Default league: **Forbidden Rites** (event league, launched 0.5.5 on 2026-09-04, ends early December). It runs _concurrently_ with `Runes of Aldur` and has a **separate economy**, so prices from one say nothing about the other. Configurable via `--league` CLI argument or by editing `FALLBACK_LEAGUE` in `src/constants.ts`. The AI agent can override per-request.
 
 | League           | Name (case-sensitive)                                         |
 | ---------------- | ------------------------------------------------------------- |
-| Softcore Trade   | `Runes of Aldur`                                              |
-| Hardcore         | `HC Runes of Aldur`                                           |
+| Softcore Trade   | `Forbidden Rites`                                             |
+| Hardcore         | `HC Forbidden Rites`                                          |
+| Concurrent 0.5.x | `Runes of Aldur`, `HC Runes of Aldur`                         |
 | Previous leagues | `Fate of the Vaal`, `Rise of the Abyssal`, `Dawn of the Hunt` |
 | Permanent SC     | `Standard`                                                    |
 | Permanent HC     | `Hardcore`                                                    |
@@ -469,7 +470,8 @@ npm start        # Run the server (stdio)
 
 This fork exists because upstream was archived (2026-04-22) and several data sources drifted afterwards. Changes vs upstream:
 
-- **Current league** — default bumped `Dawn of the Hunt` → **`Runes of Aldur`** (0.5.x).
+- **Current league** — default bumped `Dawn of the Hunt` → `Runes of Aldur` → **`Forbidden Rites`** (0.5.5 event league).
+- **poe2scout coverage gap surfaced** — a brand-new event league is served by poe2scout but stays empty until they ingest its economy, which used to read as "item not found". `poe2_item_price` now checks coverage (`hasScoutUniqueCoverage`) on an empty unique search and says so explicitly; poe.ninja currency/exchange data is unaffected.
 - **poe2scout rewritten** — their API moved to a versioned, realm-aware host. Old `poe2scout.com/api/items/unique/{category}` now 404s; the client uses `https://api.poe2scout.com/{realm}/Leagues/{league}/Uniques/ByCategory?category=…` with `realm` as a **path segment** (`poe2`), PascalCase response fields (`Total`/`Items`/`CurrentPrice`/`CurrentQuantity`), and client-side filtering because the server-side `search` param silently returns zero rows.
 - **`poe2_item_price` hang fixed** — a no-`type` search fans out over 13 exchange categories, which stalled for minutes against the old 10-req-per-5-min poe.ninja limiter. Raised to a steady 20/min (90s → ~1s).
 - **Local PoB builds now found** — `listPob2Builds`/`readPob2Build` only scanned the top-level directory, but PoB2 nests builds as `Builds/<version>/<name>/build.xml`, so a real Builds folder returned nothing. Both now recurse; builds are identified by their path relative to the Builds root.

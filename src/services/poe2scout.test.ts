@@ -17,6 +17,7 @@ import {
   searchPoe2scoutUniques,
   lookupUniquePriceFromScout,
   mapItemClassToScoutCategory,
+  hasScoutUniqueCoverage,
 } from './poe2scout.js';
 
 beforeEach(() => {
@@ -239,5 +240,25 @@ describe('lookupUniquePriceFromScout', () => {
     const result = await lookupUniquePriceFromScout('waveshaper', 'Wands', 'Standard');
 
     expect(result).toEqual({ chaos: 200, volume: 15 });
+  });
+});
+
+describe('hasScoutUniqueCoverage', () => {
+  it('returns true when the league has unique listings', async () => {
+    mockScoutResponse([{ name: "Kaom's Heart", currentPrice: 500 }]);
+
+    await expect(hasScoutUniqueCoverage('Runes of Aldur')).resolves.toBe(true);
+  });
+
+  it('returns false when the league has no unique listings', async () => {
+    mockScoutResponse([]);
+
+    await expect(hasScoutUniqueCoverage('Forbidden Rites')).resolves.toBe(false);
+  });
+
+  it('returns true on fetch failure so a transient error is not read as a gap', async () => {
+    vi.mocked(fetchJson).mockRejectedValue(new Error('HTTP 503'));
+
+    await expect(hasScoutUniqueCoverage('Forbidden Rites')).resolves.toBe(true);
   });
 });

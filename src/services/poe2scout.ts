@@ -175,6 +175,23 @@ export async function lookupUniquePriceFromScout(
 }
 
 /**
+ * Whether poe2scout has any unique listings for a league at all.
+ * Event leagues (e.g. "Forbidden Rites") are served by the API but stay empty
+ * until poe2scout ingests their economy, which reads as "item not found".
+ * Errors resolve to `true` so a transient failure never claims a coverage gap.
+ *
+ * @param league - League name
+ */
+export async function hasScoutUniqueCoverage(league: string): Promise<boolean> {
+  try {
+    const response = await getPoe2scoutUniques('weapon', league, '', 1);
+    return response.Total > 0;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Extract trade volume for a unique. The rewritten API exposes CurrentQuantity
  * directly; fall back to the most recent non-null price log entry.
  */

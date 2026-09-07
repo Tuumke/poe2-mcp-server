@@ -3206,7 +3206,7 @@ Item Level: 30
         expect(lookupUniquePriceFromScout).toHaveBeenCalledWith(
           'Circle of Guilt',
           'Rings',
-          'Runes of Aldur',
+          'Forbidden Rites',
         );
       });
     });
